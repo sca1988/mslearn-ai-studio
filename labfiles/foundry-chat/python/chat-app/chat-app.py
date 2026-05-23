@@ -3,6 +3,7 @@ from urllib import response
 from dotenv import load_dotenv
 
 # import namespaces
+from httpcore import stream
 from openai import OpenAI
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
@@ -35,16 +36,22 @@ def main():
                 continue
 
             # Get a response
-            response = openai_client.responses.create(
+            stream = openai_client.responses.create(
                 model=model_deployment,
                 instructions="You are a helpful AI assistant that answers questions and provides information.",
                 input=input_text,
-                max_output_tokens=100,
+                max_output_tokens=1000,
                 previous_response_id = last_response_id,
+                stream=True
             )
-            last_response_id = response.id
-            print(response.output_text)
-            print(f"Output tokens used: {response.usage.output_tokens}")
+            
+            for event in stream:
+                if event.type == "response.output_text.delta":
+                    print(event.delta, end="")
+                elif event.type == "response.completed":
+                    last_response_id = event.response.id
+
+            print()
 
     except Exception as ex:
         print(ex)
